@@ -1,0 +1,12 @@
+body { margin: 0; overflow: hidden; }
+
+#Text {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 100;
+  pointer-events: none;
+}
