@@ -95,6 +95,37 @@ window.addEventListener("mousemove", (e) => {
 });
 
 // ===============================
+//   タッチ操作（iPad / スマホ用）
+// ===============================
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+window.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+  lastTouchX = t.clientX;
+  lastTouchY = t.clientY;
+});
+
+window.addEventListener("touchmove", (e) => {
+  e.preventDefault(); // ← これが必須（Safariのスクロールを止める）
+
+  const t = e.touches[0];
+
+  const dx = t.clientX - lastTouchX;
+  const dy = t.clientY - lastTouchY;
+
+  lastTouchX = t.clientX;
+  lastTouchY = t.clientY;
+
+  cameraYaw += dx * MOUSE_SENS;
+  cameraPitch -= dy * MOUSE_SENS;
+
+  const limit = Math.PI / 3;
+  cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
+}, { passive: false }); //
+
+
+// ===============================
 //   移動ベクトル
 // ===============================
 function getCameraForward() {
