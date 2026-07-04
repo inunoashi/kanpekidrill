@@ -170,7 +170,7 @@ function createTree(x, z) {
 }
 
 // ランダムに5本生成
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < 10; i++) {
   const x = (Math.random() - 0.5) * 150;
   const z = (Math.random() - 0.5) * 150;
   createTree(x, z);
