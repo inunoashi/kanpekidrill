@@ -33,6 +33,7 @@ const playerMat = new THREE.MeshStandardMaterial({ color: 0xAABB90 });
 const player = new THREE.Mesh(playerGeo, playerMat);
 player.position.y = 0.8;
 player.vy = 0;
+player.hp = 100;
 player.onGround = false;
 scene.add(player);
 
@@ -124,7 +125,6 @@ window.addEventListener("touchmove", (e) => {
   cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
 }, { passive: false }); //
 
-
 // ===============================
 //   移動ベクトル
 // ===============================
@@ -170,7 +170,7 @@ function createTree(x, z) {
 }
 
 // ランダムに5本生成
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 5; i++) {
   const x = (Math.random() - 0.5) * 150;
   const z = (Math.random() - 0.5) * 150;
   createTree(x, z);
@@ -215,6 +215,8 @@ function update() {
 
     const angle = Math.atan2(move.x, move.z);
     player.rotation.y = angle;
+    const hpPercent = Math.max(0, player.hp) / 100;
+    document.getElementById("hpBar").style.width = (hpPercent * 100) + "%";
   }
 
   // ===== 重力 =====
