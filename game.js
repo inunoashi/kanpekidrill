@@ -38,6 +38,67 @@ player.onGround = false;
 scene.add(player);
 
 // ===============================
+//   敵（プレイヤーと同じ形）×2
+// ===============================
+const enemies = [];
+
+function createEnemy(x, z) {
+  const enemyGeo = new THREE.BoxGeometry(1, 1.6, 0.6);
+  const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff4444 }); // 赤色で区別
+  const enemy = new THREE.Mesh(enemyGeo, enemyMat);
+
+  enemy.position.set(x, 0.8, z);
+  enemy.hp = 100;
+
+  scene.add(enemy);
+  enemies.push(enemy);
+}
+
+// 敵を2体スポーン
+createEnemy(5, 0);   // 1体目
+createEnemy(-5, -3); // 2体目
+
+// ===============================
+//   ダメージテキスト
+// ===============================
+const damageTexts = [];
+
+function createDamageText(value, position) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "white";
+  ctx.font = "48px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(value, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+
+  // ★ 距離による縮小を無効化（常に一定サイズ）
+  const mat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    sizeAttenuation: false   // ← これが重要！
+  });
+
+  const sprite = new THREE.Sprite(mat);
+
+  sprite.position.copy(position);
+  sprite.position.y += 2.0;
+
+  // ★ ここは固定サイズでOK
+  sprite.scale.set(0.5, 0.25, 1);
+
+  sprite.life = 1.0;
+
+  scene.add(sprite);
+  damageTexts.push(sprite);
+}
+
+
+// ===============================
 //   ライト
 // ===============================
 const dir = new THREE.DirectionalLight(0xffffff, 1);
@@ -60,7 +121,18 @@ window.addEventListener("keyup", (e) => {
 });
 
 // ===============================
-//   マウス視点回転
+//   iPadユーザー限定 Bキー射撃
+// ===============================
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+window.addEventListener("keydown", (e) => {
+  if (isIOS && e.key.toLowerCase() === "b") {
+    shoot();
+  }
+});
+
+// ===============================
+//   マウス視点回転 + 射撃
 // ===============================
 let isMouseDown = false;
 let lastMouseX = 0;
@@ -72,16 +144,27 @@ let cameraPitch = 0;
 const MOUSE_SENS = 0.005;
 
 window.addEventListener("mousedown", (e) => {
-  isMouseDown = true;
-  lastMouseX = e.clientX;
-  lastMouseY = e.clientY;
+  // 右クリックで射撃
+  if (e.button === 2) {
+    shoot();
+    return; // 射撃だけして視点回転はしない
+  }
 
-  // 左クリックで射撃
-  if (e.button === 0) shoot();
+  // 左クリックで視点回転
+  if (e.button === 0) {
+    isMouseDown = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  }
 });
-window.addEventListener("mouseup", () => {
-  isMouseDown = false;
+
+window.addEventListener("mouseup", (e) => {
+  if (e.button === 0) {
+    isMouseDown = false;
+  }
 });
+
+// 視点回転（左ドラッグのみ）
 window.addEventListener("mousemove", (e) => {
   if (!isMouseDown) return;
 
@@ -97,6 +180,9 @@ window.addEventListener("mousemove", (e) => {
   const limit = Math.PI / 3;
   cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
 });
+
+// 右クリックのメニューを出さないようにする
+window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ===============================
 //   タッチ操作（iPad / スマホ用）
@@ -272,17 +358,66 @@ function update() {
   lookAtPos.y += 1.0;
   camera.lookAt(lookAtPos);
 
-  // ===== 弾の更新 =====
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i];
-    b.position.add(b.velocity);
+// ===== 弾の更新 =====
+for (let i = bullets.length - 1; i >= 0; i--) {
+  const b = bullets[i];
+  b.position.add(b.velocity);
 
-    if (b.position.distanceTo(player.position) > 80) {
-      scene.remove(b);
-      bullets.splice(i, 1);
+// --- 敵に当たったらダメージ ---
+for (const enemy of enemies) {
+  const dist = b.position.distanceTo(enemy.position);
+  if (dist < 1.0) {
+
+    // ★ ダメージテキストを表示
+    createDamageText(36, enemy.position);
+
+    enemy.hp -= 36;
+
+    if (enemy.hp <= 0) {
+      scene.remove(enemy);
+      enemies.splice(enemies.indexOf(enemy), 1);
     }
+
+    scene.remove(b);
+    bullets.splice(i, 1);
+    break;
   }
 }
+
+
+  // --- 木に当たったら消す ---
+  for (const tree of trees) {
+    const dist = b.position.distanceTo(tree.position);
+    if (dist < 1.5) {
+      scene.remove(b);
+      bullets.splice(i, 1);
+      break;
+    }
+  }
+
+  // --- 遠すぎたら消す ---
+  if (b.position.distanceTo(player.position) > 80) {
+    scene.remove(b);
+    bullets.splice(i, 1);
+  }
+}
+
+// ===== ダメージテキストの更新 =====
+for (let i = damageTexts.length - 1; i >= 0; i--) {
+  const t = damageTexts[i];
+
+  t.position.y += 0.02;   // 上にふわっと移動
+  t.material.opacity -= 0.02; // 徐々に透明に
+
+  t.life -= 0.02;
+  if (t.life <= 0) {
+    scene.remove(t);
+    damageTexts.splice(i, 1);
+  }
+}
+
+}
+
 
 // ===============================
 //   メインループ
