@@ -75,6 +75,9 @@ window.addEventListener("mousedown", (e) => {
   isMouseDown = true;
   lastMouseX = e.clientX;
   lastMouseY = e.clientY;
+
+  // 左クリックで射撃
+  if (e.button === 0) shoot();
 });
 window.addEventListener("mouseup", () => {
   isMouseDown = false;
@@ -108,8 +111,7 @@ window.addEventListener("touchstart", (e) => {
 });
 
 window.addEventListener("touchmove", (e) => {
-  e.preventDefault(); // ← これが必須（Safariのスクロールを止める）
-
+  e.preventDefault();
   const t = e.touches[0];
 
   const dx = t.clientX - lastTouchX;
@@ -123,7 +125,7 @@ window.addEventListener("touchmove", (e) => {
 
   const limit = Math.PI / 3;
   cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
-}, { passive: false }); //
+}, { passive: false });
 
 // ===============================
 //   移動ベクトル
@@ -148,28 +150,24 @@ const trees = [];
 function createTree(x, z) {
   const tree = new THREE.Group();
 
-  // 幹
   const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, 3, 8);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
   const trunk = new THREE.Mesh(trunkGeo, trunkMat);
   trunk.position.y = 1.5;
   tree.add(trunk);
 
-  // 葉
   const leafGeo = new THREE.SphereGeometry(1.5, 12, 12);
   const leafMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
   const leaves = new THREE.Mesh(leafGeo, leafMat);
   leaves.position.y = 3.5;
   tree.add(leaves);
 
-  // 木の位置
   tree.position.set(x, 0, z);
 
   scene.add(tree);
   trees.push(tree);
 }
 
-// ランダムに5本生成
 for (let i = 0; i < 10; i++) {
   const x = (Math.random() - 0.5) * 150;
   const z = (Math.random() - 0.5) * 150;
@@ -185,6 +183,30 @@ function isCollidingWithTree(nextPos) {
     if (dist < 1.0) return true;
   }
   return false;
+}
+
+// ===============================
+//   弾システム
+// ===============================
+const bullets = [];
+
+function shoot() {
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dir.normalize();
+
+  const bulletGeo = new THREE.SphereGeometry(0.1, 8, 8);
+  const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+  const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+
+  bullet.position.copy(player.position);
+  bullet.position.y += 1.0;
+  bullet.position.add(dir.clone().multiplyScalar(0.5));
+
+  bullet.velocity = dir.clone().multiplyScalar(0.6);
+
+  bullets.push(bullet);
+  scene.add(bullet);
 }
 
 // ===============================
@@ -208,22 +230,17 @@ function update() {
 
     const nextPos = player.position.clone().add(move);
 
-    // 木にぶつからないときだけ移動
     if (!isCollidingWithTree(nextPos)) {
       player.position.copy(nextPos);
     }
 
     const angle = Math.atan2(move.x, move.z);
     player.rotation.y = angle;
-    const hpPercent = Math.max(0, player.hp) / 100;
-    document.getElementById("hpBar").style.width = (hpPercent * 100) + "%";
   }
 
-  // ===== 重力 =====
   player.vy -= 0.03;
   player.position.y += player.vy;
 
-  // ===== 地面判定 =====
   const groundY = 0.8;
   if (player.position.y <= groundY) {
     player.position.y = groundY;
@@ -233,13 +250,11 @@ function update() {
     player.onGround = false;
   }
 
-  // ===== ジャンプ =====
   if (keys[" "] && player.onGround) {
     player.vy = 0.5;
     player.onGround = false;
   }
 
-  // ===== TPS カメラ追従 =====
   const distance = 5;
   const height = 1.8;
 
@@ -256,6 +271,17 @@ function update() {
   const lookAtPos = player.position.clone();
   lookAtPos.y += 1.0;
   camera.lookAt(lookAtPos);
+
+  // ===== 弾の更新 =====
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.position.add(b.velocity);
+
+    if (b.position.distanceTo(player.position) > 80) {
+      scene.remove(b);
+      bullets.splice(i, 1);
+    }
+  }
 }
 
 // ===============================
