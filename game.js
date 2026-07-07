@@ -44,11 +44,14 @@ const enemies = [];
 
 function createEnemy(x, z) {
   const enemyGeo = new THREE.BoxGeometry(1, 1.6, 0.6);
-  const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff4444 }); // 赤色で区別
+  const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff4444 });
   const enemy = new THREE.Mesh(enemyGeo, enemyMat);
 
   enemy.position.set(x, 0.8, z);
   enemy.hp = 100;
+
+  enemy.moveTimer = 0;
+  enemy.moveDir = new THREE.Vector3();
 
   scene.add(enemy);
   enemies.push(enemy);
@@ -357,6 +360,39 @@ function update() {
   const lookAtPos = player.position.clone();
   lookAtPos.y += 1.0;
   camera.lookAt(lookAtPos);
+
+// ===== 敵のランダム移動 =====
+for (const enemy of enemies) {
+
+  // 一定時間ごとにランダム方向を決める
+  enemy.moveTimer -= 1;
+  if (enemy.moveTimer <= 0) {
+    enemy.moveTimer = 60 + Math.random() * 60; // 1〜2秒ごと
+    const angle = Math.random() * Math.PI * 2;
+    enemy.moveDir.set(Math.sin(angle), 0, Math.cos(angle));
+  }
+
+  // 移動処理
+  const speed = 0.03;
+  const nextPos = enemy.position.clone().add(enemy.moveDir.clone().multiplyScalar(speed));
+
+  // 木にぶつからないようにする
+  let blocked = false;
+  for (const tree of trees) {
+    const dist = tree.position.distanceTo(nextPos);
+    if (dist < 1.5) {
+      blocked = true;
+      break;
+    }
+  }
+
+  if (!blocked) {
+    enemy.position.copy(nextPos);
+  }
+
+  // 向きを移動方向に合わせる
+  enemy.rotation.y = Math.atan2(enemy.moveDir.x, enemy.moveDir.z);
+}
 
 // ===== 弾の更新 =====
 for (let i = bullets.length - 1; i >= 0; i--) {
